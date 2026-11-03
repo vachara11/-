@@ -834,7 +834,14 @@
                                     </div>
                                     <div>
                                         <label class="block text-xs font-medium text-slate-600 mb-1">หักคะแนนมาสาย (คะแนน/ครั้ง)</label>
-                                        <input type="number" step="0.25" id="setLateDeduct" required class="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-sm">
+                                        <input type="number" step="0.25" id="setLateDeduct" value="0" disabled class="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-sm bg-slate-100 cursor-not-allowed" title="ระบบกำหนดให้มาสายไม่ตัดคะแนน">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-bold text-pink-600 mb-1">สถานะการอนุมัติเกรด (ฝั่งนักเรียน)</label>
+                                        <select id="setIsGradeApproved" class="w-full px-3.5 py-2 rounded-xl border border-pink-300 text-sm bg-pink-50 focus:ring-2 focus:ring-pink-400">
+                                            <option value="false">ซ่อนเกรด (รออนุมัติ)</option>
+                                            <option value="true">แสดงเกรด (อนุมัติแล้ว)</option>
+                                        </select>
                                     </div>
                                     <div class="sm:col-span-2">
                                         <label class="block text-xs font-medium text-slate-600 mb-1">อัปโหลดตราโลโก้วิทยาลัย (บีบอัดภาพอัตโนมัติ & อัปโหลดขึ้น Supabase Storage)</label>
@@ -1309,7 +1316,7 @@
             });
             const maxAtt = Number(appState.settings.max_attendance_score || 10);
             const deductAbsent = counts['ขาด'] * Number(appState.settings.absent_deduction || 1);
-            const deductLate = counts['สาย'] * Number(appState.settings.late_deduction || 0.5);
+            const deductLate = 0; // แก้ไขเงื่อนไข: มาสายไม่ตัดคะแนน (บังคับให้คะแนนที่ถูกหักเป็น 0)
             const attendanceScore = Math.max(0, maxAtt - deductAbsent - deductLate);
 
             const totalScore = workScore + attendanceScore;
@@ -1393,8 +1400,16 @@
             document.getElementById('stuCardAttendance').innerHTML = `${summary.attendanceScore.toFixed(1)} <span class="text-xs font-normal text-slate-500">/ ${summary.maxAtt}</span>`;
             document.getElementById('stuCardTotal').innerHTML = `${summary.totalScore.toFixed(1)} <span class="text-xs font-normal text-slate-500">/ ${summary.maxTotalScore}</span>`;
 
-            document.getElementById('stuTotalPercent').textContent = `${summary.percent.toFixed(1)}%`;
-            document.getElementById('stuFinalGrade').textContent = summary.grade;
+            // ตรวจสอบเงื่อนไขว่าครูอนุมัติเกรดแล้วหรือยัง
+            if (appState.settings.is_grade_approved) {
+                document.getElementById('stuTotalPercent').textContent = `${summary.percent.toFixed(1)}%`;
+                document.getElementById('stuFinalGrade').textContent = summary.grade;
+                document.getElementById('stuFinalGrade').classList.replace('text-xl', 'text-2xl');
+            } else {
+                document.getElementById('stuTotalPercent').textContent = `-`;
+                document.getElementById('stuFinalGrade').textContent = 'รออนุมัติ';
+                document.getElementById('stuFinalGrade').classList.replace('text-2xl', 'text-xl'); // ลดขนาดฟอนต์ลงเล็กน้อยให้พอดี
+            }
 
             const workPct = summary.maxWorkScore > 0 ? (summary.workScore / summary.maxWorkScore) * 100 : 0;
             const attPct = summary.maxAtt > 0 ? (summary.attendanceScore / summary.maxAtt) * 100 : 0;
@@ -2472,7 +2487,10 @@
             document.getElementById('setTeacherPass').value = s.teacher_password || '';
             document.getElementById('setMaxAtt').value = s.max_attendance_score ?? 10;
             document.getElementById('setAbsentDeduct').value = s.absent_deduction ?? 1;
-            document.getElementById('setLateDeduct').value = s.late_deduction ?? 0.5;
+            document.getElementById('setLateDeduct').value = 0; // บังคับแสดงเป็น 0
+            if (document.getElementById('setIsGradeApproved')) {
+                document.getElementById('setIsGradeApproved').value = s.is_grade_approved ? "true" : "false";
+            }
         }
 
         async function handleSchoolLogoUpload(e) {
@@ -2506,7 +2524,8 @@
                     teacher_password: document.getElementById('setTeacherPass').value.trim(),
                     max_attendance_score: Number(document.getElementById('setMaxAtt').value),
                     absent_deduction: Number(document.getElementById('setAbsentDeduct').value),
-                    late_deduction: Number(document.getElementById('setLateDeduct').value),
+                    late_deduction: 0, // บังคับบันทึกเป็น 0 เสมอ
+                    is_grade_approved: document.getElementById('setIsGradeApproved').value === "true",
                     school_logo: appState.settings.school_logo || ''
                 };
                 if (dbClient) {
